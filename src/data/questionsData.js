@@ -18,6 +18,7 @@ export const officialQuestions = [
       { key: "C", text: "O(n log n)" },
       { key: "D", text: "O(n²)" }
     ],
+    marks: 1,
     correctAnswer: "B",
     explanation: "The outer loop runs for values of i = 1, 2, 4, 8, ..., 2^k <= n. The inner loop executes i times for each outer iteration. The total count is the geometric sum: 1 + 2 + 4 + ... + 2^k = 2^(k+1) - 1. Since 2^k <= n, this sum is bounded by 2n - 1, which evaluates to O(n)."
   },
@@ -33,6 +34,7 @@ export const officialQuestions = [
       { key: "C", text: "10,000" },
       { key: "D", text: "1,000,000" }
     ],
+    marks: 1,
     correctAnswer: "C",
     explanation: "Level 1 is the root, which can have at most 100 children (internal nodes at level 2). Each of these 100 level-2 internal nodes can have up to 100 children (leaf nodes at level 3). Hence, maximum number of leaf nodes = 100 × 100 = 10,000."
   },
@@ -48,6 +50,7 @@ export const officialQuestions = [
       { key: "C", text: "Conservative (Static) Two-Phase Locking" },
       { key: "D", text: "Timestamp Ordering" }
     ],
+    marks: 1,
     correctAnswer: "C",
     explanation: "Conservative (or Static) Two-Phase Locking (C2PL) requires each transaction to declare and acquire all its read and write locks before it begins any execution. This protocol guarantees both conflict serializability and freedom from deadlocks."
   },
@@ -63,6 +66,7 @@ export const officialQuestions = [
       { key: "C", text: "192.168.10.128" },
       { key: "D", text: "192.168.10.192" }
     ],
+    marks: 1,
     correctAnswer: "C",
     explanation: "A /26 prefix gives a subnet mask of 255.255.255.192. The subnet block size is 256 - 192 = 64. The subnets start at .0, .64, .128, and .192. The host address 192.168.10.130 lies between 128 and 191, so the network address is 192.168.10.128."
   },
@@ -78,6 +82,7 @@ export const officialQuestions = [
       { key: "C", text: "Bellman–Ford algorithm" },
       { key: "D", text: "Kruskal's algorithm" }
     ],
+    marks: 1,
     correctAnswer: "C",
     explanation: "Dijkstra's algorithm may fail with negative-weight edges. Prim and Kruskal find Minimum Spanning Trees. The Bellman–Ford algorithm correctly computes single-source shortest paths in graphs with negative weights, provided there are no negative-weight cycles."
   },
@@ -93,6 +98,7 @@ export const officialQuestions = [
       { key: "C", text: "UNKNOWN" },
       { key: "D", text: "Zero" }
     ],
+    marks: 1,
     correctAnswer: "C",
     explanation: "In SQL three-valued logic (3VL), NULL represents an unknown value. Any direct equality comparison involving NULL (such as NULL = NULL) evaluates to UNKNOWN, not TRUE or FALSE. The 'IS NULL' predicate must be used instead."
   },
@@ -108,6 +114,7 @@ export const officialQuestions = [
       { key: "C", text: "Phantom read" },
       { key: "D", text: "Cascading rollback" }
     ],
+    marks: 1,
     correctAnswer: "B",
     explanation: "A Lost Update anomaly occurs when two transactions read the same data item and subsequently update it based on the earlier read value. The second transaction overwrites the first transaction's modifications without including them."
   },
@@ -123,6 +130,7 @@ export const officialQuestions = [
       { key: "C", text: "Sequence numbering" },
       { key: "D", text: "Slow start threshold" }
     ],
+    marks: 1,
     correctAnswer: "B",
     explanation: "TCP Flow Control uses the Receiver-advertised Window (rwnd) carried in TCP headers to inform the sender of how much free buffer space the receiver has available, preventing buffer overflow at the receiving host."
   },
@@ -138,6 +146,7 @@ export const officialQuestions = [
       { key: "C", text: "62" },
       { key: "D", text: "64" }
     ],
+    marks: 1,
     correctAnswer: "A",
     explanation: "In a /27 subnet, the number of host bits is 32 - 27 = 5. Total addresses = 2^5 = 32. Subtracting 2 for the network and broadcast addresses gives 32 - 2 = 30 usable host addresses."
   },
@@ -153,6 +162,7 @@ export const officialQuestions = [
       { key: "C", text: "80" },
       { key: "D", text: "443" }
     ],
+    marks: 1,
     correctAnswer: "D",
     explanation: "HTTPS (Hypertext Transfer Protocol Secure) defaults to port 443 (TCP). Port 80 is HTTP, port 53 is DNS, and port 21 is FTP."
   },
@@ -168,6 +178,7 @@ export const officialQuestions = [
       { key: "C", text: "Schedule CPU processes" },
       { key: "D", text: "Detect network congestion" }
     ],
+    marks: 1,
     correctAnswer: "B",
     explanation: "A TLB is a high-speed hardware cache located inside the Memory Management Unit (MMU) that stores recent virtual page number to physical frame number translations to speed up virtual memory access."
   },
@@ -183,6 +194,7 @@ export const officialQuestions = [
       { key: "C", text: "Apriori" },
       { key: "D", text: "DBSCAN" }
     ],
+    marks: 1,
     correctAnswer: "B",
     explanation: "Principal Component Analysis (PCA) is an unsupervised linear dimensionality reduction technique that identifies orthogonal axes (principal components) along which the variance of the data is maximized."
   },
@@ -198,6 +210,7 @@ export const officialQuestions = [
       { key: "C", text: "O(log n)" },
       { key: "D", text: "O(n²)" }
     ],
+    marks: 1,
     correctAnswer: "A",
     explanation: "Bottom-up heap construction (Floyd's algorithm) builds a heap in O(n) linear time because the number of nodes at height h is at most ceil(n / 2^(h+1)), and the sum sum(h / 2^h) converges to a constant."
   },
@@ -213,6 +226,7 @@ export const officialQuestions = [
       { key: "C", text: "O(n)" },
       { key: "D", text: "O(n log n)" }
     ],
+    marks: 1,
     correctAnswer: "C",
     explanation: "In the worst case, all n keys hash to the same bucket, turning that bucket into a singly linked list containing all n elements. Linear search through this list takes O(n) time."
   },
@@ -234,6 +248,7 @@ export const officialQuestions = [
       { key: "C", text: "22" },
       { key: "D", text: "18" }
     ],
+    marks: 1,
     correctAnswer: "B",
     explanation: "Because x is static, it persists across calls:\n- fun(5): x becomes 0+5=5. Calls fun(3).\n- fun(3): x becomes 5+3=8. Calls fun(1).\n- fun(1): x becomes 8+1=9. Calls fun(-1).\n- fun(-1): returns 0.\nNow returning back:\n- fun(1) returns res + x = 0 + 9 = 9.\n- fun(3) returns res + x = 9 + 9 = 18.\n- fun(5) returns res + x = 18 + 9 = 27."
   },
@@ -249,6 +264,7 @@ export const officialQuestions = [
       { key: "C", text: "Theta(log n × log log n)" },
       { key: "D", text: "Theta(√n × log n)" }
     ],
+    marks: 1,
     correctAnswer: "C",
     explanation: "Substitute m = log₂ n (so n = 2^m and √n = 2^(m/2)). The relation becomes T(2^m) = 2T(2^(m/2)) + m. Let S(m) = T(2^m). Then S(m) = 2S(m/2) + m. By the Master Theorem (Case 2, a=2, b=2, f(m)=m^1), S(m) = Θ(m log m). Substituting back m = log n yields Θ(log n × log log n)."
   },
@@ -264,6 +280,7 @@ export const officialQuestions = [
       { key: "C", text: "Third Normal Form (3NF)" },
       { key: "D", text: "Second Normal Form (2NF)" }
     ],
+    marks: 1,
     correctAnswer: "C",
     explanation: "Candidate keys of R are AB, AC, and AD. Hence, all attributes {A, B, C, D} are prime attributes. For 3NF, in every non-trivial FD X → Y, either X is a superkey OR Y is a prime attribute. Since every attribute in R is prime, all dependencies satisfy 3NF. However, C → D violates BCNF because C is not a superkey. Thus, the highest normal form is 3NF."
   },
@@ -279,6 +296,7 @@ export const officialQuestions = [
       { key: "C", text: "25" },
       { key: "D", text: "26" }
     ],
+    marks: 1,
     correctAnswer: "D",
     explanation: "An internal node contains p block pointers and (p - 1) search keys (record pointers are only stored at the leaves). Therefore: p × 8 + (p - 1) × 12 <= 510 => 8p + 12p - 12 <= 510 => 20p <= 522 => p <= 26.1. The maximum integer value for p is 26."
   },
@@ -294,6 +312,7 @@ export const officialQuestions = [
       { key: "C", text: "D" },
       { key: "D", text: "B" }
     ],
+    marks: 1,
     correctAnswer: "A",
     explanation: "Computing attribute closures: A+ = {A, B, C, D}. Because A can uniquely determine all attributes in R and no proper subset of A can do so, A is the unique candidate key."
   },
@@ -309,6 +328,7 @@ export const officialQuestions = [
       { key: "C", text: "8 and 8" },
       { key: "D", text: "10 and 8" }
     ],
+    marks: 1,
     correctAnswer: "D",
     explanation: "COUNT(*) counts the total number of rows in the table regardless of NULLs (evaluates to 10). COUNT(column_name) ignores NULL values in that specific column and counts only non-null values (evaluates to 8)."
   },
@@ -324,6 +344,7 @@ export const officialQuestions = [
       { key: "C", text: "126" },
       { key: "D", text: "62" }
     ],
+    marks: 1,
     correctAnswer: "D",
     explanation: "With a /26 prefix, 32 - 26 = 6 bits are allocated for hosts. Total address count = 2^6 = 64. Subtracting 2 (network address and broadcast address) gives 64 - 2 = 62 usable host IP addresses."
   },
@@ -339,6 +360,7 @@ export const officialQuestions = [
       { key: "C", text: "800 bits" },
       { key: "D", text: "50 bits" }
     ],
+    marks: 1,
     correctAnswer: "B",
     explanation: "For collision detection in CSMA/CD, the transmission time must be at least twice the propagation delay (Tt >= 2 × Tp). Thus: Minimum Frame Size = 2 × Tp × Bandwidth = 2 × (20 × 10^-6 s) × (10 × 10^6 bps) = 40 × 10 = 400 bits."
   },
@@ -354,6 +376,7 @@ export const officialQuestions = [
       { key: "C", text: "5.5" },
       { key: "D", text: "-0.5" }
     ],
+    marks: 1,
     correctAnswer: "D",
     explanation: "Net weighted input z = (w1 × x1) + (w2 × x2) + b = (0.5 × 2) + (-1.0 × 3) + 1.5 = 1.0 - 3.0 + 1.5 = -0.5."
   },
@@ -369,6 +392,7 @@ export const officialQuestions = [
       { key: "C", text: "45" },
       { key: "D", text: "100" }
     ],
+    marks: 1,
     correctAnswer: "C",
     explanation: "With n users in a symmetric-key system where every pair shares a distinct key, the total number of keys required is given by the combination formula n × (n - 1) / 2. For n = 10: (10 × 9) / 2 = 45 keys."
   },
@@ -384,20 +408,15 @@ export const officialQuestions = [
       { key: "C", text: "0.70" },
       { key: "D", text: "0.80" }
     ],
+    marks: 1,
     correctAnswer: "D",
     explanation: "Precision measures the proportion of positive identifications that were actually correct: Precision = TP / (TP + FP) = 40 / (40 + 10) = 40 / 50 = 0.80."
   }
 ];
 
-// Seeded/randomized question order helper function
+// Guaranteed sequential question order: 1 to 25 exactly as drafted
 export function getExamQuestions(seed = null) {
-  // Return shallow copy
-  const questions = [...officialQuestions];
-  // Simple deterministic shuffle if seed provided, else shuffle
-  for (let i = questions.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [questions[i], questions[j]] = [questions[j], questions[i]];
-  }
-  return questions;
+  // Always return questions in the exact same order (Q1 to Q25)
+  return [...officialQuestions];
 }
 

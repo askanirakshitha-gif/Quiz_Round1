@@ -32,14 +32,8 @@ export function QuizProvider({ children }) {
     }
   });
 
-  // Questions (shuffled once per session and persisted)
-  const [questions, setQuestions] = useState(() => {
-    try {
-      const stored = localStorage.getItem('tech_habba_exam_questions');
-      if (stored) return JSON.parse(stored);
-    } catch {}
-    return officialQuestions;
-  });
+  // Questions: Guaranteed sequential order (1 to 25)
+  const [questions, setQuestions] = useState(officialQuestions);
 
   // Current active question index (0 to 24)
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -179,15 +173,9 @@ export function QuizProvider({ children }) {
     const activeSession = sessionRes.session;
     setSession(activeSession);
 
-    // Shuffle questions or load existing
-    let examQs;
-    const storedQs = localStorage.getItem('tech_habba_exam_questions');
-    if (storedQs) {
-      examQs = JSON.parse(storedQs);
-    } else {
-      examQs = getExamQuestions();
-      localStorage.setItem('tech_habba_exam_questions', JSON.stringify(examQs));
-    }
+    // Keep questions in the exact same order (Q1 to Q25)
+    const examQs = [...officialQuestions];
+    localStorage.setItem('tech_habba_exam_questions', JSON.stringify(examQs));
     setQuestions(examQs);
 
     // Determine timer
