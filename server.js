@@ -438,10 +438,78 @@ app.post('/api/session/submit', async (req, res) => {
   // 1. Supabase
   if (supabase) {
     try {
-      await supabase
-        .from('quiz_sessions')
-        .update(resultPayload)
-        .eq('id', sessionId);
+      let participantDbId = null;
+
+      // Ensure participant is recorded in Supabase participants table
+      if (participant && participant.registration_id) {
+        const { data: pData, error: pErr } = await supabase
+          .from('participants')
+          .upsert({
+            registration_id: participant.registration_id,
+            team_name: participant.team_name,
+            team_leader: participant.team_leader || 'Leader',
+            email: participant.email,
+            college_name: participant.college_name || 'Acharya Institute of Technology',
+            status: 'SUBMITTED'
+          }, { onConflict: 'registration_id' })
+          .select('id')
+          .maybeSingle();
+
+        if (pData?.id) {
+          participantDbId = pData.id;
+        } else if (pErr) {
+          console.warn('[Express] Participant upsert note:', pErr.message);
+        }
+      }
+
+      // Check if row updated by UUID id
+      let updated = false;
+      if (isValidUUID(sessionId)) {
+        const { data: upData, error: upErr } = await supabase
+          .from('quiz_sessions')
+          .update(resultPayload)
+          .eq('id', sessionId)
+          .select();
+        if (upData && upData.length > 0) updated = true;
+      }
+
+      // If not updated by UUID, update by registration_id
+      if (!updated && participant?.registration_id) {
+        const { data: upData2 } = await supabase
+          .from('quiz_sessions')
+          .update(resultPayload)
+          .eq('registration_id', participant.registration_id)
+          .select();
+        if (upData2 && upData2.length > 0) updated = true;
+      }
+
+      // If no session row existed to update, INSERT it now so it is GUARANTEED to be recorded in Supabase!
+      if (!updated && participant?.registration_id) {
+        const insertPayload = {
+          ...resultPayload,
+          registration_id: participant.registration_id,
+          team_name: participant.team_name,
+          scheduled_end_time: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+        };
+        if (participantDbId && isValidUUID(participantDbId)) {
+          insertPayload.participant_id = participantDbId;
+        } else if (isValidUUID(participant?.id)) {
+          insertPayload.participant_id = participant.id;
+        }
+
+        const { data: insData, error: insErr } = await supabase
+          .from('quiz_sessions')
+          .insert(insertPayload)
+          .select();
+
+        if (insErr) {
+          console.error('[Express] Supabase insert session error:', insErr.message);
+        } else {
+          console.log('[Express] Successfully recorded new completed session in Supabase:', participant.registration_id);
+        }
+      } else {
+        console.log('[Express] Successfully updated completed session in Supabase:', participant?.registration_id);
+      }
     } catch (e) {
       console.warn('[Express] Supabase submission error:', e.message);
     }

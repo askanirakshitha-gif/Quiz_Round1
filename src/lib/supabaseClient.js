@@ -505,15 +505,53 @@ export async function submitFinalQuiz({
     updated_at: submissionTime
   };
 
-  // Supabase
+  // Direct Supabase Fallback
   if (supabaseInstance) {
     try {
-      const { error } = await supabaseInstance
-        .from('quiz_sessions')
-        .update(payload)
-        .eq('id', sessionId);
+      let updated = false;
 
-      if (error) console.error("Supabase submission error:", error);
+      // 1. Try update by UUID if valid
+      if (isValidUUID(sessionId)) {
+        const { data } = await supabaseInstance
+          .from('quiz_sessions')
+          .update(payload)
+          .eq('id', sessionId)
+          .select();
+        if (data && data.length > 0) updated = true;
+      }
+
+      // 2. If not updated by UUID, update by registration_id
+      if (!updated && participant?.registration_id) {
+        const { data } = await supabaseInstance
+          .from('quiz_sessions')
+          .update(payload)
+          .eq('registration_id', participant.registration_id)
+          .select();
+        if (data && data.length > 0) updated = true;
+      }
+
+      // 3. If no session existed yet, INSERT it now so it is GUARANTEED to be recorded in Supabase!
+      if (!updated && participant?.registration_id) {
+        const insertPayload = {
+          ...payload,
+          registration_id: participant.registration_id,
+          team_name: participant.team_name,
+          scheduled_end_time: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+        };
+        if (isValidUUID(participant?.id)) {
+          insertPayload.participant_id = participant.id;
+        }
+
+        const { error: insError } = await supabaseInstance
+          .from('quiz_sessions')
+          .insert(insertPayload);
+
+        if (insError) {
+          console.error("Direct Supabase session insert error:", insError);
+        } else {
+          console.log("Direct Supabase session recorded successfully for:", participant.registration_id);
+        }
+      }
     } catch (e) {
       console.warn("Supabase final submit failed:", e);
     }

@@ -58,44 +58,59 @@ export default function LandingPage({ onLoginSuccess, onOpenSupabaseModal }) {
     e.preventDefault();
     setErrorMsg('');
 
-    // Testing Mode: Accept ANY details or automatically supply defaults if left blank
-    const finalReg = (regId && regId.trim()) ? regId.trim().toUpperCase() : `TH2-IT-${Math.floor(100 + Math.random() * 900)}`;
-    const finalTeam = (teamName && teamName.trim()) ? teamName.trim() : `Team ${finalReg}`;
-    const finalLeader = (leaderName && leaderName.trim()) ? leaderName.trim() : 'Test Candidate';
-    const finalEmail = (email && email.trim()) ? email.trim() : `test.${finalReg.toLowerCase()}@acharya.ac.in`;
+    const cleanTeam = teamName.trim();
+    const cleanLeader = leaderName.trim();
+    const cleanEmail = email.trim();
+
+    // Require all details before proceeding
+    if (!cleanTeam) {
+      setErrorMsg('Please enter your Team Name to proceed.');
+      return;
+    }
+    if (!cleanLeader) {
+      setErrorMsg('Please enter the Team Leader Name.');
+      return;
+    }
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      setErrorMsg('Please enter a valid Registered Email ID (e.g. participant@example.com).');
+      return;
+    }
+
+    const finalReg = (regId && regId.trim()) 
+      ? regId.trim().toUpperCase() 
+      : `TH2-IT-${Math.floor(100 + Math.random() * 900)}`;
 
     setLoading(true);
 
     try {
       const res = await verifyParticipantLogin({
         regId: finalReg,
-        email: finalEmail,
-        teamName: finalTeam,
-        leaderName: finalLeader
+        email: cleanEmail,
+        teamName: cleanTeam,
+        leaderName: cleanLeader
       });
 
       if (res && res.success && res.participant) {
         onLoginSuccess(res.participant);
       } else {
-        // Instant pass-through for test details
         onLoginSuccess({
           id: 'part_' + Date.now(),
           registration_id: finalReg,
-          team_name: finalTeam,
-          team_leader: finalLeader,
-          email: finalEmail,
+          team_name: cleanTeam,
+          team_leader: cleanLeader,
+          email: cleanEmail,
           college_name: 'Acharya Institute of Technology',
           status: 'REGISTERED'
         });
       }
     } catch (err) {
-      console.warn("Direct test pass-through enabled:", err);
+      console.warn("Login pass-through:", err);
       onLoginSuccess({
         id: 'part_' + Date.now(),
         registration_id: finalReg,
-        team_name: finalTeam,
-        team_leader: finalLeader,
-        email: finalEmail,
+        team_name: cleanTeam,
+        team_leader: cleanLeader,
+        email: cleanEmail,
         college_name: 'Acharya Institute of Technology',
         status: 'REGISTERED'
       });
@@ -194,11 +209,8 @@ export default function LandingPage({ onLoginSuccess, onOpenSupabaseModal }) {
                   <Fingerprint className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-base font-bold text-white">Participant Login</h3>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-medium">Test Mode Active</span>
-                  </div>
-                  <p className="text-xs text-slate-400">Accepts ANY details or quick presets for instant testing</p>
+                  <h3 className="text-base font-bold text-white">Participant Login</h3>
+                  <p className="text-xs text-slate-400">Enter your team details to proceed to the examination</p>
                 </div>
               </div>
               <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" title="System Ready" />
@@ -215,55 +227,49 @@ export default function LandingPage({ onLoginSuccess, onOpenSupabaseModal }) {
               
               {/* Team Name */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
-                  <span className="flex items-center space-x-1.5">
-                    <Users className="w-3.5 h-3.5 text-electric-400" />
-                    <span>Team Name</span>
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-normal">Optional / Any Name</span>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center space-x-1.5">
+                  <Users className="w-3.5 h-3.5 text-electric-400" />
+                  <span>Team Name *</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="Enter any team name"
+                  placeholder="e.g. ByteForce"
                   value={teamName}
                   onChange={(e) => setTeamName(e.target.value)}
                   className="w-full bg-navy-900 border border-navy-750 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-cyan-400 transition"
+                  required
                 />
               </div>
 
               {/* Team Leader Name */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
-                  <span className="flex items-center space-x-1.5">
-                    <User className="w-3.5 h-3.5 text-electric-400" />
-                    <span>Team Leader Name</span>
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-normal">Optional / Any Name</span>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center space-x-1.5">
+                  <User className="w-3.5 h-3.5 text-electric-400" />
+                  <span>Team Leader Name *</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="Enter any leader name"
+                  placeholder="e.g. Aryan Sharma"
                   value={leaderName}
                   onChange={(e) => setLeaderName(e.target.value)}
                   className="w-full bg-navy-900 border border-navy-750 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-cyan-400 transition"
+                  required
                 />
               </div>
 
               {/* Registered Email ID */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
-                  <span className="flex items-center space-x-1.5">
-                    <Mail className="w-3.5 h-3.5 text-electric-400" />
-                    <span>Email ID</span>
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-normal">Optional / Any Email</span>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center space-x-1.5">
+                  <Mail className="w-3.5 h-3.5 text-electric-400" />
+                  <span>Registered Email ID *</span>
                 </label>
                 <input
-                  type="text"
-                  placeholder="Enter any email or leave blank"
+                  type="email"
+                  placeholder="e.g. aryan.sharma@acharya.ac.in"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-navy-900 border border-navy-750 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-cyan-400 transition"
+                  required
                 />
               </div>
 
@@ -276,11 +282,11 @@ export default function LandingPage({ onLoginSuccess, onOpenSupabaseModal }) {
                 {loading ? (
                   <span className="flex items-center space-x-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Initializing Exam Session...</span>
+                    <span>Verifying Details...</span>
                   </span>
                 ) : (
                   <>
-                    <span>Start Quiz (Proceed to Instructions)</span>
+                    <span>Proceed to Examination Instructions</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
