@@ -1,7 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { officialQuestions } from '../data/questionsData.js';
 
-// Determine Supabase credentials from .env or localStorage config
+const FALLBACK_SUPABASE_URL = 'https://pefazqsaqwcqperdgpas.supabase.co';
+const FALLBACK_SUPABASE_KEY = 'sb_publishable_f1ovBPyyeLeuJ_j044sxLw_Z8rrG5gz';
+
+// Determine Supabase credentials from .env or localStorage config, with guaranteed fallback
 function getCredentials() {
   const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : (typeof process !== 'undefined' && process.env ? process.env : {});
   const envUrl = env.VITE_SUPABASE_URL;
@@ -9,8 +12,8 @@ function getCredentials() {
   const storedUrl = (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') ? localStorage.getItem('tech_habba_supabase_url') : null;
   const storedKey = (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') ? localStorage.getItem('tech_habba_supabase_key') : null;
 
-  const url = (envUrl && envUrl.trim() !== '') ? envUrl.trim() : (storedUrl || '');
-  const key = (envKey && envKey.trim() !== '') ? envKey.trim() : (storedKey || '');
+  const url = (envUrl && envUrl.trim() !== '') ? envUrl.trim() : ((storedUrl && storedUrl.trim() !== '') ? storedUrl.trim() : FALLBACK_SUPABASE_URL);
+  const key = (envKey && envKey.trim() !== '') ? envKey.trim() : ((storedKey && storedKey.trim() !== '') ? storedKey.trim() : FALLBACK_SUPABASE_KEY);
 
   const isConfigured = Boolean(url && key && url.startsWith('http') && key.length > 20);
   return { url, key, isConfigured };
@@ -273,6 +276,32 @@ export async function initializeQuizSession(participant) {
         .maybeSingle();
 
       if (existing) {
+        if (existing.session_status === 'COMPLETED') {
+          // Reset session for fresh test/attempt
+          const { data: resetSess } = await supabaseInstance
+            .from('quiz_sessions')
+            .update({
+              session_status: 'IN_PROGRESS',
+              start_time: now.toISOString(),
+              scheduled_end_time: scheduledEndTime.toISOString(),
+              submission_time: null,
+              answers_data: {},
+              score: 0,
+              correct_answers_count: 0,
+              wrong_answers_count: 0,
+              unanswered_count: 25,
+              total_answered: 0,
+              violation_count: 0,
+              flagged: false,
+              flag_reason: null,
+              team_name: participant.team_name || existing.team_name,
+              updated_at: now.toISOString()
+            })
+            .eq('id', existing.id)
+            .select()
+            .maybeSingle();
+          return { success: true, session: resetSess || existing, isSupabase: true, resumed: false };
+        }
         return { success: true, session: existing, isSupabase: true, resumed: true };
       }
 
@@ -289,11 +318,23 @@ export async function initializeQuizSession(participant) {
         insertPayload.participant_id = participant.id;
       }
 
-      const { data: newSession, error } = await supabaseInstance
+      let { data: newSession, error } = await supabaseInstance
         .from('quiz_sessions')
         .insert(insertPayload)
         .select()
         .single();
+
+      if (error && insertPayload.participant_id) {
+        // If foreign key constraint failed on participant_id, retry without it
+        delete insertPayload.participant_id;
+        const retry = await supabaseInstance
+          .from('quiz_sessions')
+          .insert(insertPayload)
+          .select()
+          .single();
+        newSession = retry.data;
+        error = retry.error;
+      }
 
       if (error) throw error;
       return { success: true, session: newSession, isSupabase: true, resumed: false };
@@ -331,17 +372,14 @@ export async function initializeQuizSession(participant) {
 }
 
 /**
- * 3. Save Answers Periodically
+ * 3. Save Answers Periodically & On Change
  */
-export async function saveExamAnswers(sessionId, participantId, answersData) {
+export async function saveExamAnswers(sessionId, participantIdOrReg, answersData) {
   // 1. Try Express.js Backend first
-  const apiRes = await tryApiFetch('/api/session/answers', {
+  tryApiFetch('/api/session/answers', {
     method: 'POST',
-    body: JSON.stringify({ sessionId, participantId, answersData })
-  });
-  if (apiRes && apiRes.success) {
-    return;
-  }
+    body: JSON.stringify({ sessionId, participantId: participantIdOrReg, answersData })
+  }).catch(() => {});
 
   if (supabaseInstance) {
     try {
@@ -350,11 +388,22 @@ export async function saveExamAnswers(sessionId, participantId, answersData) {
         total_answered: Object.keys(answersData).length,
         updated_at: new Date().toISOString()
       };
+      let updated = false;
+
       if (isValidUUID(sessionId)) {
+        const { data } = await supabaseInstance
+          .from('quiz_sessions')
+          .update(updatePayload)
+          .eq('id', sessionId)
+          .select('id');
+        if (data && data.length > 0) updated = true;
+      }
+
+      if (!updated && participantIdOrReg) {
         await supabaseInstance
           .from('quiz_sessions')
           .update(updatePayload)
-          .eq('id', sessionId);
+          .eq('registration_id', participantIdOrReg);
       }
     } catch (e) {
       console.warn("Error saving answers to Supabase:", e);
@@ -555,10 +604,20 @@ export async function submitFinalQuiz({
           insertPayload.participant_id = participant.id;
         }
 
-        const { data: insData, error: insError } = await supabaseInstance
+        let { data: insData, error: insError } = await supabaseInstance
           .from('quiz_sessions')
           .insert(insertPayload)
           .select();
+
+        if (insError && insertPayload.participant_id) {
+          delete insertPayload.participant_id;
+          const retry = await supabaseInstance
+            .from('quiz_sessions')
+            .insert(insertPayload)
+            .select();
+          insData = retry.data;
+          insError = retry.error;
+        }
 
         if (insError) {
           console.error("Direct Supabase session insert error:", insError);

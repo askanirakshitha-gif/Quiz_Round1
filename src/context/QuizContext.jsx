@@ -135,7 +135,7 @@ export function QuizProvider({ children }) {
   useEffect(() => {
     if (!isExamActive || !session || !participant) return;
     const interval = setInterval(() => {
-      saveExamAnswers(session.id, participant.id, answers);
+      saveExamAnswers(session?.id, participant?.registration_id || participant?.id, answers);
     }, 15000);
     return () => clearInterval(interval);
   }, [isExamActive, session, participant, answers]);
@@ -195,14 +195,25 @@ export function QuizProvider({ children }) {
    * Answer actions
    */
   const selectOption = (questionId, optionKey) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: {
-        ...(prev[questionId] || {}),
-        option: optionKey,
-        answeredAt: new Date().toISOString()
+    setAnswers(prev => {
+      const updated = {
+        ...prev,
+        [questionId]: {
+          ...(prev[questionId] || {}),
+          option: optionKey,
+          answeredAt: new Date().toISOString()
+        }
+      };
+      // Immediately sync with database in background
+      if (session && (session.id || participant?.registration_id)) {
+        saveExamAnswers(
+          session.id,
+          participant?.registration_id || participant?.id,
+          updated
+        );
       }
-    }));
+      return updated;
+    });
   };
 
   const clearOption = (questionId) => {
@@ -210,6 +221,14 @@ export function QuizProvider({ children }) {
       const updated = { ...prev };
       if (updated[questionId]) {
         delete updated[questionId].option;
+      }
+      // Immediately sync with database in background
+      if (session && (session.id || participant?.registration_id)) {
+        saveExamAnswers(
+          session.id,
+          participant?.registration_id || participant?.id,
+          updated
+        );
       }
       return updated;
     });
@@ -300,10 +319,25 @@ export function QuizProvider({ children }) {
     setShowSubmitConfirmModal(false);
 
     try {
+      let currentPart = participant;
+      if (!currentPart) {
+        try {
+          const stored = localStorage.getItem('tech_habba_current_participant');
+          if (stored) currentPart = JSON.parse(stored);
+        } catch {}
+      }
+      let currentSess = session;
+      if (!currentSess) {
+        try {
+          const stored = localStorage.getItem('tech_habba_current_session');
+          if (stored) currentSess = JSON.parse(stored);
+        } catch {}
+      }
+
       const timeTaken = Math.max(1, Math.min(EXAM_DURATION_SECONDS, EXAM_DURATION_SECONDS - remainingSeconds));
       const result = await submitFinalQuiz({
-        sessionId: session?.id || 'sess_' + Date.now(),
-        participant,
+        sessionId: currentSess?.id || 'sess_' + Date.now(),
+        participant: currentPart,
         answers,
         violationCount: violationsCount,
         timeTakenSeconds: timeTaken
