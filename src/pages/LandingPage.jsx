@@ -176,7 +176,7 @@ export default function LandingPage({ onLoginSuccess, onOpenSupabaseModal }) {
                   onClick={() => handleQuickFill(preset)}
                   className="px-2.5 py-1 text-xs font-mono rounded-lg bg-navy-800 hover:bg-navy-750 border border-navy-700 hover:border-electric-500/50 text-slate-300 hover:text-white transition"
                 >
-                  {preset.team_name} ({preset.registration_id})
+                  {preset.team_name}
                 </button>
               ))}
             </div>
@@ -213,24 +213,6 @@ export default function LandingPage({ onLoginSuccess, onOpenSupabaseModal }) {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               
-              {/* Registration ID */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
-                  <span className="flex items-center space-x-1.5">
-                    <Fingerprint className="w-3.5 h-3.5 text-electric-400" />
-                    <span>Registration ID</span>
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-normal">Optional / Any Text</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Enter any ID or leave blank for auto-ID"
-                  value={regId}
-                  onChange={(e) => setRegId(e.target.value)}
-                  className="w-full bg-navy-900 border border-navy-750 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-cyan-400 font-mono tracking-wider transition"
-                />
-              </div>
-
               {/* Team Name */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
@@ -305,17 +287,6 @@ export default function LandingPage({ onLoginSuccess, onOpenSupabaseModal }) {
               </button>
 
             </form>
-
-            <div className="mt-5 pt-4 border-t border-navy-800 text-center">
-              <button
-                type="button"
-                onClick={onOpenSupabaseModal}
-                className="text-xs text-slate-400 hover:text-cyan-400 transition inline-flex items-center space-x-1"
-              >
-                <span>Need to connect your Supabase database?</span>
-                <span className="text-cyan-400 font-semibold underline">Configure Keys</span>
-              </button>
-            </div>
 
           </div>
         </div>

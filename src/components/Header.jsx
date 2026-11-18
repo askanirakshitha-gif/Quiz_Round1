@@ -115,22 +115,6 @@ export default function Header({ onOpenSupabaseModal, onOpenAdminModal, isExamMo
             </div>
           )}
 
-          {/* Database Connection Pill */}
-          <button
-            onClick={onOpenSupabaseModal}
-            className={`hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition ${
-              dbHealth.tablesReady
-                ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/50'
-                : isConnected
-                ? 'bg-amber-950/40 border-amber-500/40 text-amber-300 hover:bg-amber-900/50 animate-pulse'
-                : 'bg-navy-850 hover:bg-navy-750 border-navy-700 text-slate-400 hover:text-slate-200'
-            }`}
-            title="Configure Supabase API Keys"
-          >
-            <Database className="w-3 h-3 text-cyan-400" />
-            <span>{dbHealth.tablesReady ? 'Supabase: Live' : isConnected ? 'Supabase: Run SQL' : 'Database Setup'}</span>
-          </button>
-
           {/* Admin Dashboard Trigger */}
           <button
             onClick={onOpenAdminModal}

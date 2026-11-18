@@ -172,17 +172,16 @@ export default function AdminDashboard({ isOpen, onClose, onOpenSupabaseModal })
           </div>
 
           <div className="flex items-center space-x-3">
-            <button
-              onClick={onOpenSupabaseModal}
-              className={`hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-lg border text-xs font-mono transition ${
+            <div
+              className={`hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-lg border text-xs font-mono ${
                 isConnected
                   ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
                   : 'bg-navy-800 border-navy-700 text-slate-400'
               }`}
             >
-              <Database className="w-3.5 h-3.5 text-cyan-400" />
-              <span>{isConnected ? 'Supabase Live' : 'Local Fallback'}</span>
-            </button>
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400' : 'bg-slate-400'}`} />
+              <span>{isConnected ? 'Database Live' : 'Local Fallback'}</span>
+            </div>
 
             <button
               onClick={onClose}
