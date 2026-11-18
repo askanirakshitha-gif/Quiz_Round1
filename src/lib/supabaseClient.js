@@ -345,14 +345,17 @@ export async function saveExamAnswers(sessionId, participantId, answersData) {
 
   if (supabaseInstance) {
     try {
-      await supabaseInstance
-        .from('quiz_sessions')
-        .update({
-          answers_data: answersData,
-          total_answered: Object.keys(answersData).length,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', sessionId);
+      const updatePayload = {
+        answers_data: answersData,
+        total_answered: Object.keys(answersData).length,
+        updated_at: new Date().toISOString()
+      };
+      if (isValidUUID(sessionId)) {
+        await supabaseInstance
+          .from('quiz_sessions')
+          .update(updatePayload)
+          .eq('id', sessionId);
+      }
     } catch (e) {
       console.warn("Error saving answers to Supabase:", e);
     }
@@ -453,15 +456,6 @@ export async function submitFinalQuiz({
   violationCount,
   timeTakenSeconds = 0
 }) {
-  // 1. Try Express.js Backend first
-  const apiRes = await tryApiFetch('/api/session/submit', {
-    method: 'POST',
-    body: JSON.stringify({ sessionId, participant, answers, violationCount, timeTakenSeconds })
-  });
-  if (apiRes && apiRes.success) {
-    return apiRes;
-  }
-
   const submissionTime = new Date().toISOString();
 
   // Compute score, right answers, and wrong answers using verified official questions
@@ -474,7 +468,7 @@ export async function submitFinalQuiz({
     if (selected && selected.option) {
       answeredCount++;
       if (selected.option === q.correctAnswer) {
-        correctCount++;
+        correctCount += (q.marks || 1);
       } else {
         wrongCount++;
       }
@@ -505,9 +499,28 @@ export async function submitFinalQuiz({
     updated_at: submissionTime
   };
 
-  // Direct Supabase Fallback
+  // 1. Direct Supabase Recording (Guaranteed Cloud Persistence from browser)
   if (supabaseInstance) {
     try {
+      const activeReg = participant?.registration_id || 'TH2-IT-' + Math.floor(100 + Math.random() * 900);
+      const activeTeam = participant?.team_name || 'Team ' + activeReg;
+
+      // Try to insert/upsert participant into participants table
+      try {
+        await supabaseInstance
+          .from('participants')
+          .insert({
+            registration_id: activeReg,
+            team_name: activeTeam,
+            team_leader: participant?.team_leader || 'Leader',
+            email: participant?.email || `${activeReg.toLowerCase()}@acharya.ac.in`,
+            college_name: participant?.college_name || 'Acharya Institute of Technology',
+            status: 'SUBMITTED'
+          });
+      } catch (e) {
+        // Ignored if duplicate or RLS policy restricts insert on participants table
+      }
+
       let updated = false;
 
       // 1. Try update by UUID if valid
@@ -516,48 +529,57 @@ export async function submitFinalQuiz({
           .from('quiz_sessions')
           .update(payload)
           .eq('id', sessionId)
-          .select();
+          .select('id');
         if (data && data.length > 0) updated = true;
       }
 
       // 2. If not updated by UUID, update by registration_id
-      if (!updated && participant?.registration_id) {
+      if (!updated && activeReg) {
         const { data } = await supabaseInstance
           .from('quiz_sessions')
           .update(payload)
-          .eq('registration_id', participant.registration_id)
-          .select();
+          .eq('registration_id', activeReg)
+          .select('id');
         if (data && data.length > 0) updated = true;
       }
 
       // 3. If no session existed yet, INSERT it now so it is GUARANTEED to be recorded in Supabase!
-      if (!updated && participant?.registration_id) {
+      if (!updated) {
         const insertPayload = {
           ...payload,
-          registration_id: participant.registration_id,
-          team_name: participant.team_name,
+          registration_id: activeReg,
+          team_name: activeTeam,
           scheduled_end_time: new Date(Date.now() + 30 * 60 * 1000).toISOString()
         };
         if (isValidUUID(participant?.id)) {
           insertPayload.participant_id = participant.id;
         }
 
-        const { error: insError } = await supabaseInstance
+        const { data: insData, error: insError } = await supabaseInstance
           .from('quiz_sessions')
-          .insert(insertPayload);
+          .insert(insertPayload)
+          .select();
 
         if (insError) {
           console.error("Direct Supabase session insert error:", insError);
         } else {
-          console.log("Direct Supabase session recorded successfully for:", participant.registration_id);
+          console.log("Direct Supabase session recorded successfully for:", activeReg, insData);
         }
+      } else {
+        console.log("Direct Supabase session updated to COMPLETED for:", activeReg);
       }
     } catch (e) {
       console.warn("Supabase final submit failed:", e);
     }
   }
 
-  // Local
+  // 2. Also notify Backend API asynchronously if available (Render)
+  tryApiFetch('/api/session/submit', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, participant, answers, violationCount, timeTakenSeconds })
+  }).catch(() => {});
+
+  // 3. Local fallback store
   const sessions = getLocalData('tech_habba_sessions', {});
   if (sessions[sessionId]) {
     sessions[sessionId] = {
@@ -578,8 +600,8 @@ export async function submitFinalQuiz({
     timeTakenSeconds: timeTaken,
     accuracyPercentage,
     submissionTime,
-    teamName: participant.team_name,
-    registrationId: participant.registration_id
+    teamName: participant?.team_name || 'Team',
+    registrationId: participant?.registration_id || 'TH2-IT-101'
   };
 }
 

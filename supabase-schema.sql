@@ -143,6 +143,16 @@ CREATE POLICY "Allow public read of participants for login verification"
     ON participants FOR SELECT
     USING (true);
 
+DROP POLICY IF EXISTS "Allow public insert on participants" ON participants;
+CREATE POLICY "Allow public insert on participants" 
+    ON participants FOR INSERT 
+    WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public update on participants" ON participants;
+CREATE POLICY "Allow public update on participants" 
+    ON participants FOR UPDATE 
+    USING (true);
+
 CREATE POLICY "Allow public select on questions"
     ON questions FOR SELECT
     USING (true);
