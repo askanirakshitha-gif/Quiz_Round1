@@ -142,7 +142,11 @@ if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'func
 // Helper to call Node.js / Express.js Backend when available
 async function tryApiFetch(url, options = {}) {
   try {
-    const res = await fetch(url, {
+    const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : (typeof process !== 'undefined' && process.env ? process.env : {});
+    const backendBase = (env.VITE_BACKEND_URL && env.VITE_BACKEND_URL.trim() !== '') ? env.VITE_BACKEND_URL.trim().replace(/\/$/, '') : '';
+    const targetUrl = backendBase ? `${backendBase}${url}` : url;
+
+    const res = await fetch(targetUrl, {
       headers: { 'Content-Type': 'application/json' },
       ...options
     });
