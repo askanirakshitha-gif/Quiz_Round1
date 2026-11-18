@@ -1,0 +1,189 @@
+-- ==============================================================================
+-- TECH HABBA 2.0 – IT QUIZ ROUND 1: SUPABASE DATABASE SCHEMA
+-- Organized by: The Big O Technical Club, Acharya Institutes
+-- ==============================================================================
+
+-- 1. Enable UUID Extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. Participants Table
+-- Stores authorized teams registered for TECH HABBA 2.0 IT Quiz
+CREATE TABLE IF NOT EXISTS participants (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    registration_id VARCHAR(50) UNIQUE NOT NULL,
+    team_name VARCHAR(100) NOT NULL,
+    team_leader VARCHAR(100) NOT NULL,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    college_name VARCHAR(150) DEFAULT 'Acharya Institute of Technology',
+    status VARCHAR(30) DEFAULT 'REGISTERED', -- 'REGISTERED', 'IN_EXAM', 'SUBMITTED', 'FLAGGED'
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. Questions Table
+-- Stores the 25 official IT Quiz questions and options
+CREATE TABLE IF NOT EXISTS questions (
+    id SERIAL PRIMARY KEY,
+    question_number INT NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    question_text TEXT NOT NULL,
+    code_snippet TEXT,
+    option_a TEXT NOT NULL,
+    option_b TEXT NOT NULL,
+    option_c TEXT NOT NULL,
+    option_d TEXT NOT NULL,
+    correct_option CHAR(1) NOT NULL,
+    explanation TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. Quiz Sessions Table
+-- Tracks live examination sessions, time taken, right/wrong answer counts, and rank metrics
+CREATE TABLE IF NOT EXISTS quiz_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    participant_id UUID REFERENCES participants(id) ON DELETE CASCADE,
+    registration_id VARCHAR(50) NOT NULL,
+    team_name VARCHAR(100) NOT NULL,
+    session_status VARCHAR(30) DEFAULT 'IN_PROGRESS', -- 'IN_PROGRESS', 'COMPLETED', 'DISQUALIFIED', 'FLAGGED'
+    start_time TIMESTAMPTZ DEFAULT NOW(),
+    scheduled_end_time TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 minutes'),
+    submission_time TIMESTAMPTZ,
+    
+    -- Performance & Time Metrics
+    time_taken_seconds INT DEFAULT 0,            -- Time taken to answer overall questions (in seconds)
+    total_questions INT DEFAULT 25,
+    total_answered INT DEFAULT 0,
+    correct_answers_count INT DEFAULT 0,         -- Total number of right answers
+    wrong_answers_count INT DEFAULT 0,           -- Total number of wrong answers
+    unanswered_count INT DEFAULT 25,             -- Total number of unanswered/skipped questions
+    score INT DEFAULT 0,                         -- 1 mark per right answer
+    accuracy_percentage NUMERIC(5,2) DEFAULT 0.00,
+    
+    -- Security & Anti-Cheat
+    violation_count INT DEFAULT 0,
+    flagged BOOLEAN DEFAULT FALSE,
+    flag_reason TEXT,
+    answers_data JSONB DEFAULT '{}'::jsonb,
+    
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. Anti-Cheat Violations Table
+-- Real-time audit log of security events (tab-switches, fullscreen exits, shortcuts)
+CREATE TABLE IF NOT EXISTS violations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id UUID REFERENCES quiz_sessions(id) ON DELETE CASCADE,
+    participant_id UUID REFERENCES participants(id) ON DELETE CASCADE,
+    team_name VARCHAR(100) NOT NULL,
+    registration_id VARCHAR(50) NOT NULL,
+    violation_type VARCHAR(50) NOT NULL, -- 'TAB_SWITCH', 'FULLSCREEN_EXIT', 'KEYBOARD_SHORTCUT', 'CONTEXT_MENU', 'WINDOW_BLUR'
+    violation_details TEXT,
+    violation_number INT NOT NULL,
+    occurred_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. Rank-Wise Leaderboard View
+-- Automatically computes Rank, Right Answers, Wrong Answers, and Time Taken
+CREATE OR REPLACE VIEW leaderboard_rankings AS
+SELECT 
+    DENSE_RANK() OVER (
+        ORDER BY 
+            s.score DESC, 
+            s.time_taken_seconds ASC, 
+            s.violation_count ASC, 
+            s.submission_time ASC
+    ) AS rank,
+    s.id AS session_id,
+    s.registration_id,
+    s.team_name,
+    p.team_leader,
+    p.email,
+    s.score,
+    s.correct_answers_count,
+    s.wrong_answers_count,
+    s.unanswered_count,
+    s.total_questions,
+    s.time_taken_seconds,
+    CONCAT(
+        FLOOR(s.time_taken_seconds / 60)::TEXT, 'm ', 
+        (s.time_taken_seconds % 60)::TEXT, 's'
+    ) AS time_taken_formatted,
+    CASE 
+        WHEN s.total_answered > 0 THEN ROUND((s.correct_answers_count::NUMERIC / s.total_answered::NUMERIC) * 100, 1)
+        ELSE 0.0 
+    END AS accuracy,
+    s.violation_count,
+    s.flagged,
+    s.session_status,
+    s.start_time,
+    s.submission_time
+FROM quiz_sessions s
+LEFT JOIN participants p ON s.participant_id = p.id
+WHERE s.session_status = 'COMPLETED'
+ORDER BY rank ASC;
+
+-- 7. Insert Default Sample Registered Participants for Testing
+INSERT INTO participants (registration_id, team_name, team_leader, email, college_name)
+VALUES
+    ('TH2-IT-101', 'ByteForce', 'Aryan Sharma', 'aryan.sharma@acharya.ac.in', 'Acharya Institute of Technology'),
+    ('TH2-IT-102', 'CyberKnights', 'Sneha Patil', 'sneha.patil@acharya.ac.in', 'Acharya Institutes'),
+    ('TH2-IT-103', 'BinaryBrains', 'Rohan Verma', 'rohan.verma@acharya.ac.in', 'Acharya Institute of Technology'),
+    ('TH2-IT-104', 'NullPointers', 'Ananya Hegde', 'ananya.hegde@acharya.ac.in', 'Acharya Institutes'),
+    ('TH2-IT-105', 'CodeWarriors', 'Karthik Rao', 'karthik.rao@acharya.ac.in', 'Acharya Institute of Technology')
+ON CONFLICT (registration_id) DO NOTHING;
+
+-- 8. Enable Row Level Security (RLS)
+ALTER TABLE participants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE questions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE quiz_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE violations ENABLE ROW LEVEL SECURITY;
+
+-- 9. Public Access Policies for Quiz Operation (Publishable / Anon API Key)
+CREATE POLICY "Allow public read of participants for login verification"
+    ON participants FOR SELECT
+    USING (true);
+
+CREATE POLICY "Allow public select on questions"
+    ON questions FOR SELECT
+    USING (true);
+
+CREATE POLICY "Allow participant session creation and updates"
+    ON quiz_sessions FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+CREATE POLICY "Allow violation logging"
+    ON violations FOR INSERT
+    WITH CHECK (true);
+
+CREATE POLICY "Allow admin read on violations"
+    ON violations FOR SELECT
+    USING (true);
+
+-- 10. Insert All 25 Official Questions Extracted from OneDrive Document
+INSERT INTO questions (question_number, category, question_text, code_snippet, option_a, option_b, option_c, option_d, correct_option, explanation) VALUES
+    (1, 'Algorithms & Complexity', 'What is the time complexity of the following code?', 'for (i = 1; i <= n; i *= 2) {\n    for (j = 1; j <= i; j++) {\n        count++;\n    }\n}', 'O(log n)', 'O(n)', 'O(n log n)', 'O(n²)', 'B', 'The outer loop runs for values of i = 1, 2, 4, 8, ..., 2^k <= n. The inner loop executes i times for each outer iteration. The total count is the geometric sum: 1 + 2 + 4 + ... + 2^k = 2^(k+1) - 1. Since 2^k <= n, this sum is bounded by 2n - 1, which evaluates to O(n).'),
+    (2, 'Data Structures & Databases', 'A B+ tree index has a maximum of 100 children per internal node. If the root is at level 1 and the tree has three levels, what is the maximum number of leaf nodes?', NULL, '100', '1,000', '10,000', '1,000,000', 'C', 'Level 1 is the root, which can have at most 100 children (internal nodes at level 2). Each of these 100 level-2 internal nodes can have up to 100 children (leaf nodes at level 3). Hence, maximum number of leaf nodes = 100 × 100 = 10,000.'),
+    (3, 'Database Systems', 'Which concurrency-control protocol guarantees conflict serializability by requiring a transaction to acquire all its locks before it begins execution?', NULL, 'Basic Two-Phase Locking', 'Strict Two-Phase Locking', 'Conservative (Static) Two-Phase Locking', 'Timestamp Ordering', 'C', 'Conservative (or Static) Two-Phase Locking (C2PL) requires each transaction to declare and acquire all its read and write locks before it begins any execution. This protocol guarantees both conflict serializability and freedom from deadlocks.'),
+    (4, 'Computer Networks', 'A host has IP address 192.168.10.130/26. What is the network address?', NULL, '192.168.10.0', '192.168.10.64', '192.168.10.128', '192.168.10.192', 'C', 'A /26 prefix gives a subnet mask of 255.255.255.192. The subnet block size is 256 - 192 = 64. The subnets start at .0, .64, .128, and .192. The host address 192.168.10.130 lies between 128 and 191, so the network address is 192.168.10.128.'),
+    (5, 'Graph Algorithms', 'Which algorithm is suitable for finding shortest paths in a graph containing negative-weight edges but no negative-weight cycles?', NULL, 'Prim''s algorithm', 'Dijkstra''s algorithm', 'Bellman–Ford algorithm', 'Kruskal''s algorithm', 'C', 'Dijkstra''s algorithm may fail with negative-weight edges. Prim and Kruskal find Minimum Spanning Trees. The Bellman–Ford algorithm correctly computes single-source shortest paths in graphs with negative weights, provided there are no negative-weight cycles.'),
+    (6, 'Database Systems & SQL', 'What does the expression NULL = NULL evaluate to in standard SQL?', NULL, 'TRUE', 'FALSE', 'UNKNOWN', 'Zero', 'C', 'In SQL three-valued logic (3VL), NULL represents an unknown value. Any direct equality comparison involving NULL (such as NULL = NULL) evaluates to UNKNOWN, not TRUE or FALSE. The ''IS NULL'' predicate must be used instead.'),
+    (7, 'Database Concurrency', 'Which concurrency anomaly occurs when one transaction overwrites another transaction''s update based on a stale read?', NULL, 'Dirty read', 'Lost update', 'Phantom read', 'Cascading rollback', 'B', 'A Lost Update anomaly occurs when two transactions read the same data item and subsequently update it based on the earlier read value. The second transaction overwrites the first transaction''s modifications without including them.'),
+    (8, 'Computer Networks & Protocols', 'Which TCP mechanism prevents a sender from overwhelming the receiver''s buffer?', NULL, 'Congestion window', 'Receiver-advertised window', 'Sequence numbering', 'Slow start threshold', 'B', 'TCP Flow Control uses the Receiver-advertised Window (rwnd) carried in TCP headers to inform the sender of how much free buffer space the receiver has available, preventing buffer overflow at the receiving host.'),
+    (9, 'Computer Networks & IP Addressing', 'How many usable host addresses are available in a conventional IPv4 /27 subnet?', NULL, '30', '32', '62', '64', 'A', 'In a /27 subnet, the number of host bits is 32 - 27 = 5. Total addresses = 2^5 = 32. Subtracting 2 for the network and broadcast addresses gives 32 - 2 = 30 usable host addresses.'),
+    (10, 'Network Protocols & Ports', 'What is the default port number for HTTPS?', NULL, '21', '53', '80', '443', 'D', 'HTTPS (Hypertext Transfer Protocol Secure) defaults to port 443 (TCP). Port 80 is HTTP, port 53 is DNS, and port 21 is FTP.'),
+    (11, 'Operating Systems & Memory', 'What is the primary purpose of a Translation Lookaside Buffer (TLB)?', NULL, 'Cache disk blocks', 'Cache virtual-to-physical address translations', 'Schedule CPU processes', 'Detect network congestion', 'B', 'A TLB is a high-speed hardware cache located inside the Memory Management Unit (MMU) that stores recent virtual page number to physical frame number translations to speed up virtual memory access.'),
+    (12, 'Machine Learning & Data Science', 'Which technique reduces dimensionality by finding directions of maximum variance in the data?', NULL, 'K-means', 'PCA', 'Apriori', 'DBSCAN', 'B', 'Principal Component Analysis (PCA) is an unsupervised linear dimensionality reduction technique that identifies orthogonal axes (principal components) along which the variance of the data is maximized.'),
+    (13, 'Data Structures & Heap', 'What is the time complexity of building a binary heap using bottom-up heap construction?', NULL, 'O(n)', 'O(n log n)', 'O(log n)', 'O(n²)', 'A', 'Bottom-up heap construction (Floyd''s algorithm) builds a heap in O(n) linear time because the number of nodes at height h is at most ceil(n / 2^(h+1)), and the sum sum(h / 2^h) converges to a constant.'),
+    (14, 'Data Structures & Hashing', 'What is the worst-case time complexity of searching in a hash table with separate chaining?', NULL, 'O(1)', 'O(log n)', 'O(n)', 'O(n log n)', 'C', 'In the worst case, all n keys hash to the same bucket, turning that bucket into a singly linked list containing all n elements. Linear search through this list takes O(n) time.'),
+    (15, 'C Programming & Recursion', 'Consider the following C function:\nWhat is the value returned by the function call fun(5)?', 'int fun(int n) {\n    static int x = 0;\n    if (n <= 0) return 0;\n    x = x + n;\n    int res = fun(n - 2);\n    return res + x;\n}', '9', '27', '22', '18', 'B', 'Because x is static, it persists across calls:\n- fun(5): x becomes 0+5=5. Calls fun(3).\n- fun(3): x becomes 5+3=8. Calls fun(1).\n- fun(1): x becomes 8+1=9. Calls fun(-1).\n- fun(-1): returns 0.\nNow returning back:\n- fun(1) returns res + x = 0 + 9 = 9.\n- fun(3) returns res + x = 9 + 9 = 18.\n- fun(5) returns res + x = 18 + 9 = 27.'),
+    (16, 'Algorithm Analysis & Recurrences', 'Consider the recurrence relation T(n) = 2T(√n) + log₂(n) for n > 2, with the base case T(2) = 1. Which of the following represents the tightest asymptotic bound for T(n)?', NULL, 'Theta(n log n)', 'Theta((log n)²)', 'Theta(log n × log log n)', 'Theta(√n × log n)', 'C', 'Substitute m = log₂ n (so n = 2^m and √n = 2^(m/2)). The relation becomes T(2^m) = 2T(2^(m/2)) + m. Let S(m) = T(2^m). Then S(m) = 2S(m/2) + m. By the Master Theorem (Case 2, a=2, b=2, f(m)=m^1), S(m) = Θ(m log m). Substituting back m = log n yields Θ(log n × log log n).'),
+    (17, 'Database Normalization', 'Consider a relational schema R(A, B, C, D) with the set of functional dependencies F = {AB → C, C → D, D → B}. Which of the following is the highest normal form satisfied by the relation R?', NULL, 'First Normal Form (1NF)', 'Boyce-Codd Normal Form (BCNF)', 'Third Normal Form (3NF)', 'Second Normal Form (2NF)', 'C', 'Candidate keys of R are AB, AC, and AD. Hence, all attributes {A, B, C, D} are prime attributes. For 3NF, in every non-trivial FD X → Y, either X is a superkey OR Y is a prime attribute. Since every attribute in R is prime, all dependencies satisfy 3NF. However, C → D violates BCNF because C is not a superkey. Thus, the highest normal form is 3NF.'),
+    (18, 'File Organization & B+ Trees', 'In a B+ tree, an internal (non-leaf) node can contain up to p block pointers and p − 1 search key values. Suppose a search key takes 12 bytes, a block pointer takes 8 bytes, a record pointer takes 12 bytes, and the disk block size is 510 bytes with no header overhead. What is the maximum value of the order p for an internal node?', NULL, '15', '16', '25', '26', 'D', 'An internal node contains p block pointers and (p - 1) search keys (record pointers are only stored at the leaves). Therefore: p × 8 + (p - 1) × 12 <= 510 => 8p + 12p - 12 <= 510 => 20p <= 522 => p <= 26.1. The maximum integer value for p is 26.'),
+    (19, 'Relational Database Theory', 'Consider a relational schema R(A, B, C, D) with the set of functional dependencies F = {A → B, B → C, C → D}. Which of the following is the candidate key for the relation R?', NULL, 'A', 'AB', 'D', 'B', 'A', 'Computing attribute closures: A+ = {A, B, C, D}. Because A can uniquely determine all attributes in R and no proper subset of A can do so, A is the unique candidate key.'),
+    (20, 'SQL Aggregation & NULL Handling', 'A relational table Students contains 10 rows in total. In the marks column, 8 rows store valid integer values and 2 rows store NULL. What values will be returned by the SQL aggregate expressions COUNT(*) and COUNT(marks), respectively?', NULL, '10 and 10', '8 and 10', '8 and 8', '10 and 8', 'D', 'COUNT(*) counts the total number of rows in the table regardless of NULLs (evaluates to 10). COUNT(column_name) ignores NULL values in that specific column and counts only non-null values (evaluates to 8).'),
+    (21, 'Computer Networks & Subnetting', 'An organization is allocated an IPv4 subnet with the CIDR notation 192.168.1.0/26. What is the maximum number of usable host IP addresses available in this subnet?', NULL, '64', '30', '126', '62', 'D', 'With a /26 prefix, 32 - 26 = 6 bits are allocated for hosts. Total address count = 2^6 = 64. Subtracting 2 (network address and broadcast address) gives 64 - 2 = 62 usable host IP addresses.'),
+    (22, 'Data Link Layer & CSMA/CD', 'A local area network using CSMA/CD operates at a bandwidth of 10 Mbps and has a one-way propagation delay of 20 μs between the two farthest stations. What is the minimum frame size required for guaranteed collision detection?', NULL, '200 bits', '400 bits', '800 bits', '50 bits', 'B', 'For collision detection in CSMA/CD, the transmission time must be at least twice the propagation delay (Tt >= 2 × Tp). Thus: Minimum Frame Size = 2 × Tp × Bandwidth = 2 × (20 × 10^-6 s) × (10 × 10^6 bps) = 40 × 10 = 400 bits.'),
+    (23, 'Neural Networks & Perceptrons', 'A single-layer perceptron receives two inputs x1 = 2 and x2 = 3 with corresponding weights w1 = 0.5 and w2 = -1.0, and a bias term b = 1.5. What is the net weighted input z = w1x1 + w2x2 + b before applying the activation function?', NULL, '-2.0', '-3.5', '5.5', '-0.5', 'D', 'Net weighted input z = (w1 × x1) + (w2 × x2) + b = (0.5 × 2) + (-1.0 × 3) + 1.5 = 1.0 - 3.0 + 1.5 = -0.5.'),
+    (24, 'Cryptography & Network Security', 'In a communication network of 10 users, every pair of users requires a unique shared secret key to communicate securely using symmetric-key cryptography. How many distinct secret keys are required in total across the network?', NULL, '20', '90', '45', '100', 'C', 'With n users in a symmetric-key system where every pair shares a distinct key, the total number of keys required is given by the combination formula n × (n - 1) / 2. For n = 10: (10 × 9) / 2 = 45 keys.'),
+    (25, 'Machine Learning Evaluation Metrics', 'A binary classification model is evaluated on a test set of 100 samples, yielding the following confusion matrix counts: True Positives (TP) = 40, False Positives (FP) = 10, True Negatives (TN) = 30, and False Negatives (FN) = 20. What is the precision of the model?', NULL, '0.67', '0.57', '0.70', '0.80', 'D', 'Precision measures the proportion of positive identifications that were actually correct: Precision = TP / (TP + FP) = 40 / (40 + 10) = 40 / 50 = 0.80.');
