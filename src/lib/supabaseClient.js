@@ -777,46 +777,52 @@ export async function submitFinalQuiz({
  * 6. Admin Dashboard: Get Overview, Sessions, Violations & Leaderboard
  */
 export async function getAdminDashboardData() {
-  // 1. Try Express.js Backend first
-  const apiRes = await tryApiFetch('/api/admin/dashboard');
-  if (apiRes && apiRes.success) {
-    return apiRes;
-  }
-
   let participants = [];
   let sessions = [];
   let violations = [];
 
+  // 1. Direct Supabase Query (Authoritative Live Cloud Data)
   if (supabaseInstance) {
     try {
-      // First try to fetch leaderboard_rankings view if created
-      const { data: viewData, error: viewError } = await supabaseInstance
-        .from('leaderboard_rankings')
-        .select('*');
-
-      if (!viewError && viewData) {
-        sessions = viewData;
-      } else {
-        // Fallback to quiz_sessions table
-        const { data: rawSessions } = await supabaseInstance
-          .from('quiz_sessions')
-          .select('*');
-        if (rawSessions) sessions = rawSessions;
-      }
-
-      const [pRes, vRes] = await Promise.all([
-        supabaseInstance.from('participants').select('*'),
+      const [sessionsRes, participantsRes, violationsRes] = await Promise.all([
+        supabaseInstance.from('quiz_sessions').select('*').order('created_at', { ascending: false }),
+        supabaseInstance.from('participants').select('*').order('created_at', { ascending: false }),
         supabaseInstance.from('violations').select('*').order('occurred_at', { ascending: false })
       ]);
 
-      if (pRes.data) participants = pRes.data;
-      if (vRes.data) violations = vRes.data;
+      if (sessionsRes.data && sessionsRes.data.length > 0) {
+        sessions = sessionsRes.data.map(s => ({
+          ...s,
+          id: s.id || s.session_id,
+          time_taken_formatted: s.time_taken_formatted || `${Math.floor((s.time_taken_seconds || 0) / 60)}m ${(s.time_taken_seconds || 0) % 60}s`
+        }));
+      } else {
+        const { data: viewData } = await supabaseInstance.from('leaderboard_rankings').select('*');
+        if (viewData && viewData.length > 0) {
+          sessions = viewData.map(v => ({ ...v, id: v.session_id || v.id }));
+        }
+      }
+
+      if (participantsRes.data && participantsRes.data.length > 0) {
+        participants = participantsRes.data;
+      }
+      if (violationsRes.data && violationsRes.data.length > 0) {
+        violations = violationsRes.data;
+      }
     } catch (e) {
-      console.warn("Admin fetch from Supabase error, falling back:", e);
+      console.warn("Admin fetch from Supabase error:", e);
     }
   }
 
-  // Fallback to local if empty
+  // 2. Try Backend API if Supabase had no data
+  if (sessions.length === 0 && participants.length === 0) {
+    const apiRes = await tryApiFetch('/api/admin/dashboard');
+    if (apiRes && apiRes.success) {
+      return apiRes;
+    }
+  }
+
+  // 3. Fallback to local if empty
   if (participants.length === 0) {
     participants = getLocalData('tech_habba_participants', DEFAULT_PARTICIPANTS);
   }
